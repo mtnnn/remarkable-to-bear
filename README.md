@@ -33,14 +33,13 @@ brew install rmapi poppler
 # Configure rmapi (first time only — authenticates with reMarkable cloud)
 rmapi
 
+# Install Python dependencies
+pip install -r requirements.txt
+
 # Copy the example config and add your API key
 cp .env.example .env
 # Edit .env and set OPENAI_API_KEY=sk-...
 ```
-
-No Python dependencies are needed — the script uses only the standard library.
-
-> **Optional:** If your reMarkable documents are in notebook format (not PDF export), you'll also need: `pip install cairosvg pdfrw 'rmc @ git+https://github.com/ricklupton/rmc.git'`
 
 ## Usage
 
