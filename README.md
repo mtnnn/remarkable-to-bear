@@ -19,7 +19,7 @@ Convert handwritten [reMarkable](https://remarkable.com/) notes into structured 
 - **[poppler](https://poppler.freedesktop.org/)** — PDF to image conversion (`brew install poppler`)
 - **[Bear](https://bear.app/)** — note-taking app (Mac App Store)
 - **OpenAI API key** with access to a vision model
-- **Remarkable cloud access**
+- **Remarkable cloud access (optional)**
 
 ## Setup
 
