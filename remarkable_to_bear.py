@@ -207,6 +207,7 @@ def render_rmdoc_to_pdf(zip_path: Path, tmp: str) -> Path:
 
     try:
         from rmc import rm_to_svg
+        from rmc.exporters import writing_tools as _wt
         import cairosvg
         from pdfrw import PdfReader, PdfWriter
     except ImportError:
@@ -214,6 +215,15 @@ def render_rmdoc_to_pdf(zip_path: Path, tmp: str) -> Path:
             "Cannot render reMarkable notebook: missing optional dependencies.\n"
             "Run: pip install cairosvg pdfrw 'rmc @ git+https://github.com/ricklupton/rmc.git'"
         )
+
+    # Patch rmc's palette with all reMarkable colors (including highlight and newer colors)
+    # rmc intentionally skips HIGHLIGHT (9) which causes KeyError on pages with highlighter
+    _missing_colors = {
+        9: (251, 247, 25),    # HIGHLIGHT — default yellow highlighter
+    }
+    for color_id, rgb in _missing_colors.items():
+        if color_id not in _wt.RM_PALETTE:
+            _wt.RM_PALETTE[color_id] = rgb
 
     extract_dir = Path(tmp) / "extracted"
     extract_dir.mkdir(exist_ok=True)
