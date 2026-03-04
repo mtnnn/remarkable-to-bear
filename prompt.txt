@@ -1,0 +1,41 @@
+You are reading handwritten notes exported from a reMarkable tablet as images.
+
+Return ONLY valid JSON. Do NOT include markdown fences or commentary.
+NEVER return an empty notes array.
+
+Schema:
+{
+  "notes": [
+    {
+      "title": "Subject - (YYYY-MM-DD)",
+      "tags": ["tag1", "tag2", "tag3"],
+      "body": "Markdown body for Bear (NO action items section)",
+      "action_items": [
+        { "title": "Do something", "due_date": "YYYY-MM-DD or null", "list": "Work or null" }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Return at least one note.
+- A horizontal line or underline is a section separator WITHIN a note, NOT a boundary between notes.
+- Split into multiple notes ONLY for clearly separate, unrelated meetings or topics.
+- If the page contains one topic (even with multiple sections), return exactly ONE note.
+- Titles should be concise.
+- "tags": 3-4 meaningful tags from the content (e.g. topic, project, team). No leading #. Nested tags allowed like "ops/team". No generic tags like "notes" or "remarkable".
+- "body": Bear-friendly Markdown. MUST NOT include Action Items.
+- The FIRST line of body MUST be hashtags (e.g. "#hubspot #sync #crm"). Do NOT repeat them.
+- Body structure:
+  ## Agenda
+  ## Decisions (optional)
+  ## Notes - Key Points
+  ## Open Questions (optional)
+
+Action items:
+- Include every action item from the notes.
+- Each: "title" required. "due_date" optional (null if unknown). "list" optional (null if unknown).
+
+Accuracy:
+- Preserve meaning; do not invent content.
+- Read handwriting carefully.

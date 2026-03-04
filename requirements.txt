@@ -1,0 +1,7 @@
+# Core (no Python dependencies — uses only stdlib + system tools)
+# System tools needed: poppler (brew install poppler), rmapi (brew install rmapi)
+
+# Optional: only needed if your reMarkable documents are in notebook format (not PDF export)
+# cairosvg>=2.7.0
+# pdfrw>=0.4
+# rmc @ git+https://github.com/ricklupton/rmc.git

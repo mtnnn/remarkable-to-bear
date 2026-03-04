@@ -1,0 +1,152 @@
+# remarkable-to-bear
+
+Convert handwritten [reMarkable](https://remarkable.com/) notes into structured [Bear](https://bear.app/) notes and Apple Reminders using GPT-4o Vision.
+
+## What it does
+
+1. **Pulls** your "Quick Sheets" notebook from the reMarkable cloud (or accepts a local PDF)
+2. **Converts** each page to an image
+3. **Sends** the images to OpenAI's GPT-4o vision model
+4. **Creates** Bear notes with structured markdown (agenda, decisions, key points, open questions)
+5. **Creates** Apple Reminders from any action items found in the notes
+6. **Deletes** the processed notebook from the reMarkable cloud (optional)
+
+## Requirements
+
+- **macOS** (uses Bear.app, Reminders.app, and AppleScript)
+- **Python 3.10+**
+- **[rmapi](https://github.com/ddvber/rmapi)** — reMarkable cloud CLI (`brew install rmapi`)
+- **[poppler](https://poppler.freedesktop.org/)** — PDF to image conversion (`brew install poppler`)
+- **[Bear](https://bear.app/)** — note-taking app (Mac App Store)
+- **OpenAI API key** with access to a vision model
+
+## Setup
+
+```bash
+# Clone the repo
+git clone https://github.com/mtnnn/remarkable-to-bear.git
+cd remarkable-to-bear
+
+# Install system dependencies
+brew install rmapi poppler
+
+# Configure rmapi (first time only — authenticates with reMarkable cloud)
+rmapi
+
+# Copy the example config and add your API key
+cp .env.example .env
+# Edit .env and set OPENAI_API_KEY=sk-...
+```
+
+No Python dependencies are needed — the script uses only the standard library.
+
+> **Optional:** If your reMarkable documents are in notebook format (not PDF export), you'll also need: `pip install cairosvg pdfrw 'rmc @ git+https://github.com/ricklupton/rmc.git'`
+
+## Usage
+
+### Direct CLI
+
+```bash
+# Pull "Quick Sheets" from reMarkable cloud and process
+python remarkable_to_bear.py
+
+# Process a local PDF
+python remarkable_to_bear.py /path/to/notes.pdf
+```
+
+### Raycast
+
+This script includes [Raycast](https://www.raycast.com/) metadata and works as a Raycast Script Command:
+
+1. Open Raycast → Extensions → Script Commands → Add Script Directory
+2. Point it to the cloned repo folder
+3. Run "reMarkable → Bear" from Raycast (optionally select a PDF)
+
+### Other workflow triggers
+
+**Apple Shortcuts**
+Create a Shortcut with a "Run Shell Script" action:
+```bash
+cd /path/to/remarkable-to-bear && python remarkable_to_bear.py "$1"
+```
+You can trigger it from the menu bar, keyboard shortcut, or Siri.
+
+**Automator / Folder Action**
+Set up a Folder Action on a directory where you save reMarkable PDF exports. When a new PDF appears, Automator runs the script automatically.
+
+**Alfred**
+Create an Alfred Workflow with a "Run Script" action pointing to the script. Trigger it with a keyword like `rm2bear`.
+
+**Keyboard Maestro**
+Create a macro with an "Execute Shell Script" action. Bind it to a hotkey.
+
+**Hazel**
+Watch a folder for new PDF files and run the script when one appears.
+
+**Cron / launchd**
+Schedule periodic processing (e.g., every morning):
+```bash
+# crontab -e
+0 9 * * * cd /path/to/remarkable-to-bear && python remarkable_to_bear.py
+```
+
+**fswatch (file system watcher)**
+```bash
+fswatch -o ~/Downloads/*.pdf | xargs -n1 -I{} python /path/to/remarkable-to-bear/remarkable_to_bear.py
+```
+
+## Configuration
+
+All settings are in `.env`:
+
+| Variable | Default | Description |
+|---|---|---|
+| `OPENAI_API_KEY` | *(required)* | Your OpenAI API key |
+| `OPENAI_MODEL` | `gpt-4o` | OpenAI model (must support vision) |
+| `RMAPI_SEARCH_TERM` | `Quick sheets` | Notebook name to find in reMarkable cloud |
+| `DELETE_AFTER_PROCESSING` | `true` | Delete notebook from cloud after processing |
+| `CREATE_REMINDERS` | `true` | Create Apple Reminders from action items |
+| `DEFAULT_REMINDERS_LIST` | `Work` | Default Reminders.app list |
+| `IMAGE_DPI` | `170` | DPI for PDF → image conversion (lower = smaller payload) |
+| `MAX_PAGES` | `12` | Maximum pages to process |
+| `DEBUG_RAW_OUTPUT` | `false` | Print raw model JSON for debugging |
+
+## Customizing the prompt
+
+Edit `prompt.txt` to change how the AI interprets your handwritten notes. You can:
+
+- Change the output structure (different markdown sections)
+- Add or remove fields from the JSON schema
+- Change the language or handwriting interpretation rules
+- Adjust tag generation rules
+- Modify how action items are extracted
+
+The script will use `prompt.txt` from the same directory. If the file is missing, a built-in default is used.
+
+## How it works
+
+```
+reMarkable Cloud                    Local PDF
+       │                                │
+       ▼                                │
+   rmapi pull                           │
+       │                                │
+       ▼                                ▼
+    PDF file ──────────────────► pdftoppm (poppler)
+                                        │
+                                        ▼
+                                   PNG images
+                                        │
+                                        ▼
+                              OpenAI GPT-4o Vision
+                                        │
+                                        ▼
+                                  Structured JSON
+                                   ╱          ╲
+                                  ▼            ▼
+                            Bear notes    Apple Reminders
+```
+
+## License
+
+MIT
