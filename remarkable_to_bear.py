@@ -87,8 +87,14 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
 CREATE_REMINDERS = os.environ.get("CREATE_REMINDERS", "true").lower() in ("true", "1", "yes")
 DEFAULT_REMINDERS_LIST = os.environ.get("DEFAULT_REMINDERS_LIST", "Work")
 
-MAX_PAGES = int(os.environ.get("MAX_PAGES", "12"))
-IMAGE_DPI = int(os.environ.get("IMAGE_DPI", "170"))
+try:
+    MAX_PAGES = int(os.environ.get("MAX_PAGES", "12"))
+except ValueError:
+    MAX_PAGES = 12
+try:
+    IMAGE_DPI = int(os.environ.get("IMAGE_DPI", "170"))
+except ValueError:
+    IMAGE_DPI = 170
 MAX_BASE64_BYTES = 24 * 1024 * 1024
 
 RMAPI_SEARCH_TERM = os.environ.get("RMAPI_SEARCH_TERM", "Quick sheets")
@@ -158,6 +164,11 @@ SYSTEM_PROMPT = _load_prompt()
 # -------------------------
 # Utilities
 # -------------------------
+def _applescript_escape(s: str) -> str:
+    """Escape a string for safe embedding in AppleScript double-quoted strings."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def run(cmd: List[str], cwd: Optional[str] = None) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=cwd)
 
@@ -228,6 +239,10 @@ def render_rmdoc_to_pdf(zip_path: Path, tmp: str) -> Path:
     extract_dir = Path(tmp) / "extracted"
     extract_dir.mkdir(exist_ok=True)
     with zipfile.ZipFile(zip_path) as zf:
+        for member in zf.namelist():
+            target = (extract_dir / member).resolve()
+            if not str(target).startswith(str(extract_dir.resolve())):
+                raise RuntimeError(f"Zip path traversal detected: {member}")
         zf.extractall(extract_dir)
 
     content_files = list(extract_dir.glob("*.content"))
@@ -320,7 +335,8 @@ def get_notebook_pdf_from_cloud() -> tuple[Optional[str], List[Path], str, str]:
     return str(pdf_path), [], cloud_path, tmp
 
 
-def pdf_to_images(pdf_path: str) -> List[Path]:
+def pdf_to_images(pdf_path: str) -> tuple[List[Path], str]:
+    """Convert PDF pages to PNG images. Returns (images, temp_dir) — caller must clean up temp_dir."""
     if run(["/usr/bin/which", "pdftoppm"]).returncode != 0:
         raise RuntimeError("pdftoppm not found. Install with: brew install poppler")
 
@@ -329,14 +345,16 @@ def pdf_to_images(pdf_path: str) -> List[Path]:
 
     cp = run(["pdftoppm", "-png", "-r", str(IMAGE_DPI), pdf_path, out])
     if cp.returncode != 0:
+        shutil.rmtree(tmp, ignore_errors=True)
         raise RuntimeError("pdftoppm failed:\n" + (cp.stderr or cp.stdout))
 
     images = sorted(Path(tmp).glob("page-*.png"))
     if not images:
+        shutil.rmtree(tmp, ignore_errors=True)
         raise RuntimeError("No images produced from PDF")
     if len(images) > MAX_PAGES:
         images = images[:MAX_PAGES]
-    return images
+    return images, tmp
 
 
 def encode_image_b64(path: Path) -> str:
@@ -374,7 +392,8 @@ def call_openai_chat_completions(payload: Dict[str, Any]) -> Dict[str, Any]:
             raw = resp.read().decode("utf-8")
             return json.loads(raw)
     except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
+        body = e.read().decode("utf-8", errors="replace")[:500]
+        body = re.sub(r"sk-[A-Za-z0-9_-]+", "sk-***REDACTED***", body)
         raise RuntimeError(f"OpenAI HTTP {e.code}: {body}")
     except urllib.error.URLError as e:
         raise RuntimeError(f"OpenAI connection error: {e}")
@@ -414,8 +433,8 @@ def openai_vision(images: List[Path]) -> str:
 
 
 def notify(title: str, message: str) -> None:
-    msg_esc = message.replace('"', '\\"')
-    title_esc = title.replace('"', '\\"')
+    msg_esc = _applescript_escape(message)
+    title_esc = _applescript_escape(title)
     run(["osascript", "-e", f'display notification "{msg_esc}" with title "{title_esc}"'])
 
 
@@ -509,9 +528,9 @@ def bear_create(title: str, body: str, open_note: bool = False, images: Optional
 # -------------------------
 def create_reminder(title: str, list_name: str = "", due_date: Optional[str] = None, note_title: str = "") -> tuple[bool, str]:
     list_name = list_name or DEFAULT_REMINDERS_LIST
-    title_esc = (title or "").replace('"', '\\"')
-    list_esc = list_name.replace('"', '\\"')
-    body_esc = (f"From: {note_title}" if note_title else "").replace('"', '\\"')
+    title_esc = _applescript_escape(title or "")
+    list_esc = _applescript_escape(list_name)
+    body_esc = _applescript_escape(f"From: {note_title}" if note_title else "")
     body_prop = f', body:"{body_esc}"' if body_esc else ""
 
     if due_date:
@@ -579,6 +598,7 @@ def create_reminder(title: str, list_name: str = "", due_date: Optional[str] = N
 def main() -> None:
     cloud_path = None
     tmp_dir = None
+    pages_tmp_dir = None
     direct_images: List[Path] = []
 
     if len(sys.argv) > 1 and sys.argv[1].strip():
@@ -602,7 +622,7 @@ def main() -> None:
             print(f"🖼️ Using {len(pages)} thumbnail(s) from notebook")
         else:
             print("📄 PDF:", pdf)
-            pages = pdf_to_images(pdf)
+            pages, pages_tmp_dir = pdf_to_images(pdf)
             print(f"🖼️ Converted to {len(pages)} image(s) @ {IMAGE_DPI} DPI")
         for i, img in enumerate(pages, start=1):
             print(f"  - page {i}: {img.name} ({img.stat().st_size/1024:.1f} KB)")
@@ -716,6 +736,8 @@ def main() -> None:
                 print(f"⚠️ Failed to delete from cloud: {cloud_path}")
                 print("   ", str(e).strip())
 
+        if pages_tmp_dir:
+            shutil.rmtree(pages_tmp_dir, ignore_errors=True)
         if tmp_dir:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
