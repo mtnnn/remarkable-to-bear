@@ -1,6 +1,6 @@
 # remarkable-to-bear
 
-Convert handwritten [reMarkable](https://remarkable.com/) notes into structured [Bear](https://bear.app/) notes and Apple Reminders using GPT-4o Vision.
+Convert handwritten [reMarkable](https://remarkable.com/) notes into structured [Bear](https://bear.app/) notes and action items in [Things 3](https://culturedcode.com/things/) or Apple Reminders using GPT-4o Vision.
 
 ## What it does
 
@@ -8,16 +8,17 @@ Convert handwritten [reMarkable](https://remarkable.com/) notes into structured 
 2. **Converts** each page to an image
 3. **Sends** the images to OpenAI's GPT-4o vision model
 4. **Creates** Bear notes with structured markdown (agenda, decisions, key points, open questions)
-5. **Creates** Apple Reminders from any action items found in the notes
+5. **Creates** action items in Things 3 and/or Apple Reminders (configurable), with context and a deep link back to the Bear note
 6. **Deletes** the processed notebook from the reMarkable cloud (optional)
 
 ## Requirements
 
-- **macOS** (uses Bear.app, Reminders.app, and AppleScript)
+- **macOS** (uses Bear.app, Things 3 / Reminders.app, and AppleScript)
 - **Python 3.10+**
 - **[rmapi](https://github.com/ddvber/rmapi)** — reMarkable cloud CLI (`brew install rmapi`)
 - **[poppler](https://poppler.freedesktop.org/)** — PDF to image conversion (`brew install poppler`)
 - **[Bear](https://bear.app/)** — note-taking app (Mac App Store)
+- **[Things 3](https://culturedcode.com/things/)** and/or **Apple Reminders** — for action items
 - **OpenAI API key** with access to a vision model
 - **Remarkable cloud access (optional)**
 
@@ -105,8 +106,10 @@ All settings are in `.env`:
 | `OPENAI_MODEL` | `gpt-4o` | OpenAI model (must support vision) |
 | `RMAPI_SEARCH_TERM` | `Quick sheets` | Notebook name to find in reMarkable cloud |
 | `DELETE_AFTER_PROCESSING` | `true` | Delete notebook from cloud after processing |
-| `CREATE_REMINDERS` | `true` | Create Apple Reminders from action items |
+| `CREATE_REMINDERS` | `true` | Create action items from handwritten notes |
+| `TODO_APP` | `reminders` | Todo app: `reminders`, `things`, or `both` |
 | `DEFAULT_REMINDERS_LIST` | `Work` | Default Reminders.app list |
+| `DEFAULT_THINGS_LIST` | *(empty = Inbox)* | Default Things 3 project |
 | `IMAGE_DPI` | `170` | DPI for PDF → image conversion (lower = smaller payload) |
 | `MAX_PAGES` | `12` | Maximum pages to process |
 | `DEBUG_RAW_OUTPUT` | `false` | Print raw model JSON for debugging |
@@ -144,7 +147,7 @@ reMarkable Cloud                    Local PDF
                                   Structured JSON
                                    ╱          ╲
                                   ▼            ▼
-                            Bear notes    Apple Reminders
+                            Bear notes    Things 3 / Reminders
 ```
 
 ## License
