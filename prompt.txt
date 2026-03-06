@@ -26,6 +26,7 @@ Rules:
 - "tags": 3-4 meaningful tags from the content (e.g. topic, project, team). No leading #. Nested tags allowed like "ops/team". No generic tags like "notes" or "remarkable".
 - "body": Bear-friendly Markdown. MUST NOT include Action Items.
 - The FIRST line of body MUST be hashtags (e.g. "#hubspot #sync #crm"). Do NOT repeat them.
+- Text with a box in front of them are action items, they need to be converted to a reminder
 - Body structure:
   ## Agenda
   ## Decisions (optional)

@@ -85,7 +85,9 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
 
 CREATE_REMINDERS = os.environ.get("CREATE_REMINDERS", "true").lower() in ("true", "1", "yes")
+TODO_APP = os.environ.get("TODO_APP", "reminders").lower()  # "reminders", "things", or "both"
 DEFAULT_REMINDERS_LIST = os.environ.get("DEFAULT_REMINDERS_LIST", "Work")
+DEFAULT_THINGS_LIST = os.environ.get("DEFAULT_THINGS_LIST", "")
 
 try:
     MAX_PAGES = int(os.environ.get("MAX_PAGES", "12"))
@@ -593,6 +595,27 @@ def create_reminder(title: str, list_name: str = "", due_date: Optional[str] = N
 
 
 # -------------------------
+# Things 3
+# -------------------------
+def create_things_todo(title: str, list_name: str = "", due_date: Optional[str] = None, note_title: str = "") -> tuple[bool, str]:
+    """Create a to-do in Things 3 via URL scheme."""
+    params: Dict[str, str] = {"title": title or ""}
+    if due_date:
+        params["when"] = due_date
+    list_name = list_name or DEFAULT_THINGS_LIST
+    if list_name:
+        params["list"] = list_name
+    if note_title:
+        params["notes"] = f"From: {note_title}"
+
+    url = "things:///add?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+    cp = run(["open", url])
+    if cp.returncode != 0:
+        return False, (cp.stderr or cp.stdout).strip()
+    return True, ""
+
+
+# -------------------------
 # Main
 # -------------------------
 def main() -> None:
@@ -707,21 +730,31 @@ def main() -> None:
                     if not isinstance(ai_list, str) or not ai_list.strip():
                         ai_list = DEFAULT_REMINDERS_LIST
 
-                    ok, err = create_reminder(ai_title, list_name=ai_list.strip(), due_date=ai_due, note_title=title)
-                    if ok:
-                        reminders_created += 1
-                    else:
-                        reminders_failed += 1
-                        reminders_failures.append(f"{ai_title}: {err}")
+                    if TODO_APP in ("reminders", "both"):
+                        ok, err = create_reminder(ai_title, list_name=ai_list.strip(), due_date=ai_due, note_title=title)
+                        if ok:
+                            reminders_created += 1
+                        else:
+                            reminders_failed += 1
+                            reminders_failures.append(f"{ai_title}: {err}")
+                    if TODO_APP in ("things", "both"):
+                        ok, err = create_things_todo(ai_title, list_name=ai_list.strip(), due_date=ai_due, note_title=title)
+                        if ok:
+                            reminders_created += 1
+                        else:
+                            reminders_failed += 1
+                            reminders_failures.append(f"{ai_title}: {err}")
+
+        todo_app_label = {"reminders": "Reminders.app", "things": "Things 3", "both": "Reminders.app + Things 3"}.get(TODO_APP, TODO_APP)
 
         print(f"\n✅ Created {len(created_titles)} Bear note(s):")
         for t in created_titles:
             print(" -", t)
 
         if CREATE_REMINDERS:
-            print(f"⏰ Created {reminders_created} reminder(s) in Reminders.app")
+            print(f"⏰ Created {reminders_created} action item(s) in {todo_app_label}")
             if reminders_failed:
-                print(f"⚠️ Failed to create {reminders_failed} reminder(s):")
+                print(f"⚠️ Failed to create {reminders_failed} action item(s):")
                 for msg in reminders_failures:
                     print(" -", msg)
 
