@@ -11,7 +11,7 @@ Schema:
       "tags": ["tag1", "tag2", "tag3"],
       "body": "Markdown body for Bear (NO action items section)",
       "action_items": [
-        { "title": "Do something", "due_date": "YYYY-MM-DD or null", "list": "Work or null" }
+        { "title": "Do something", "context": "Brief context why", "due_date": "YYYY-MM-DD or null", "list": "Work or null" }
       ]
     }
   ]
@@ -35,7 +35,7 @@ Rules:
 
 Action items:
 - Include every action item from the notes.
-- Each: "title" required. "due_date" optional (null if unknown). "list" optional (null if unknown).
+- Each: "title" required. "context": 1-2 sentences explaining why this action item exists or what it relates to. "due_date" optional (null if unknown). "list" optional (null if unknown).
 
 Accuracy:
 - Preserve meaning; do not invent content.

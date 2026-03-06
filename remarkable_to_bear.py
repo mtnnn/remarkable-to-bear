@@ -130,7 +130,7 @@ Schema:
       "tags": ["tag1", "tag2", "tag3"],
       "body": "Markdown body for Bear (NO action items section)",
       "action_items": [
-        { "title": "Do something", "due_date": "YYYY-MM-DD or null", "list": "Work or null" }
+        { "title": "Do something", "context": "Brief context why", "due_date": "YYYY-MM-DD or null", "list": "Work or null" }
       ]
     }
   ]
@@ -153,7 +153,7 @@ Rules:
 
 Action items:
 - Include every action item from the notes.
-- Each: "title" required. "due_date" optional (null if unknown). "list" optional (null if unknown).
+- Each: "title" required. "context": 1-2 sentences explaining why this action item exists or what it relates to. "due_date" optional (null if unknown). "list" optional (null if unknown).
 
 Accuracy:
 - Preserve meaning; do not invent content.
@@ -528,11 +528,16 @@ def bear_create(title: str, body: str, open_note: bool = False, images: Optional
 # -------------------------
 # Reminders
 # -------------------------
-def create_reminder(title: str, list_name: str = "", due_date: Optional[str] = None, note_title: str = "") -> tuple[bool, str]:
+def create_reminder(title: str, list_name: str = "", due_date: Optional[str] = None, note_title: str = "", context: str = "") -> tuple[bool, str]:
     list_name = list_name or DEFAULT_REMINDERS_LIST
     title_esc = _applescript_escape(title or "")
     list_esc = _applescript_escape(list_name)
-    body_esc = _applescript_escape(f"From: {note_title}" if note_title else "")
+    body_parts = []
+    if note_title:
+        body_parts.append(f"From: {note_title}")
+    if context:
+        body_parts.append(context)
+    body_esc = _applescript_escape("\n".join(body_parts))
     body_prop = f', body:"{body_esc}"' if body_esc else ""
 
     if due_date:
@@ -597,7 +602,7 @@ def create_reminder(title: str, list_name: str = "", due_date: Optional[str] = N
 # -------------------------
 # Things 3
 # -------------------------
-def create_things_todo(title: str, list_name: str = "", due_date: Optional[str] = None, note_title: str = "") -> tuple[bool, str]:
+def create_things_todo(title: str, list_name: str = "", due_date: Optional[str] = None, note_title: str = "", context: str = "") -> tuple[bool, str]:
     """Create a to-do in Things 3 via URL scheme."""
     params: Dict[str, str] = {"title": title or ""}
     if due_date:
@@ -605,8 +610,18 @@ def create_things_todo(title: str, list_name: str = "", due_date: Optional[str] 
     list_name = list_name or DEFAULT_THINGS_LIST
     if list_name:
         params["list"] = list_name
+
+    # Build notes field: context + Bear deep link
+    notes_parts: List[str] = []
+    if context:
+        notes_parts.append(context)
     if note_title:
-        params["notes"] = f"From: {note_title}"
+        bear_link = "bear://x-callback-url/open-note?" + urllib.parse.urlencode(
+            {"title": note_title}, quote_via=urllib.parse.quote
+        )
+        notes_parts.append(f"Bear note: {bear_link}")
+    if notes_parts:
+        params["notes"] = "\n\n".join(notes_parts)
 
     url = "things:///add?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
     cp = run(["open", url])
@@ -729,16 +744,17 @@ def main() -> None:
                     ai_list = ai.get("list")
                     if not isinstance(ai_list, str) or not ai_list.strip():
                         ai_list = DEFAULT_REMINDERS_LIST
+                    ai_context = (ai.get("context") or "").strip()
 
                     if TODO_APP in ("reminders", "both"):
-                        ok, err = create_reminder(ai_title, list_name=ai_list.strip(), due_date=ai_due, note_title=title)
+                        ok, err = create_reminder(ai_title, list_name=ai_list.strip(), due_date=ai_due, note_title=title, context=ai_context)
                         if ok:
                             reminders_created += 1
                         else:
                             reminders_failed += 1
                             reminders_failures.append(f"{ai_title}: {err}")
                     if TODO_APP in ("things", "both"):
-                        ok, err = create_things_todo(ai_title, list_name=ai_list.strip(), due_date=ai_due, note_title=title)
+                        ok, err = create_things_todo(ai_title, list_name=ai_list.strip(), due_date=ai_due, note_title=title, context=ai_context)
                         if ok:
                             reminders_created += 1
                         else:
