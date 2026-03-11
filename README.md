@@ -15,7 +15,7 @@ Convert handwritten [reMarkable](https://remarkable.com/) notes into structured 
 
 - **macOS** (uses Bear.app, Things 3 / Reminders.app, and AppleScript)
 - **Python 3.10+**
-- **[rmapi](https://github.com/ddvber/rmapi)** — reMarkable cloud CLI (`brew install rmapi`)
+- **[rmapi](https://github.com/ddvk/rmapi)** — reMarkable cloud CLI (see setup below)
 - **[poppler](https://poppler.freedesktop.org/)** — PDF to image conversion (`brew install poppler`)
 - **[Bear](https://bear.app/)** — note-taking app (Mac App Store)
 - **[Things 3](https://culturedcode.com/things/)** and/or **Apple Reminders** — for action items
@@ -30,10 +30,21 @@ git clone https://github.com/mtnnn/remarkable-to-bear.git
 cd remarkable-to-bear
 
 # Install system dependencies
-brew install rmapi poppler
+brew install go poppler
+
+# Install rmapi (reMarkable cloud CLI)
+go install github.com/ddvk/rmapi@latest
+# Add Go binaries to PATH (add this to your ~/.zshrc or ~/.bash_profile)
+export PATH=$HOME/go/bin:$PATH
 
 # Configure rmapi (first time only — authenticates with reMarkable cloud)
 rmapi
+
+# Create a Python virtual environment (requires Python 3.10+)
+# macOS system Python is often 3.9, so use Homebrew Python if needed:
+#   brew install python@3.13
+python3 -m venv venv          # or: python3.13 -m venv venv
+source venv/bin/activate
 
 # Install Python dependencies
 pip install -r requirements.txt

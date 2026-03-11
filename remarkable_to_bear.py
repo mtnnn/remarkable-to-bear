@@ -186,12 +186,21 @@ def choose_pdf() -> str:
 
 
 def rmapi_run(args: List[str], cwd: Optional[str] = None) -> subprocess.CompletedProcess:
+    import shutil
+    rmapi_bin = shutil.which("rmapi") or os.path.expanduser("~/go/bin/rmapi")
+    if not os.path.isfile(rmapi_bin):
+        raise RuntimeError(
+            "rmapi not found. Install it: https://github.com/ddvk/rmapi\n"
+            "  go install github.com/ddvk/rmapi@latest\n"
+            "  Make sure ~/go/bin is in your PATH"
+        )
     try:
-        cp = run(["rmapi"] + args, cwd=cwd)
+        cp = run([rmapi_bin] + args, cwd=cwd)
     except FileNotFoundError:
         raise RuntimeError(
-            "rmapi not found. Install it: https://github.com/ddvber/rmapi\n"
-            "  brew install rmapi  (or)  go install github.com/ddvber/rmapi@latest"
+            "rmapi not found. Install it: https://github.com/ddvk/rmapi\n"
+            "  go install github.com/ddvk/rmapi@latest\n"
+            "  Make sure ~/go/bin is in your PATH"
         )
     if cp.returncode != 0:
         raise RuntimeError(f"rmapi failed: {' '.join(args)}\n{(cp.stderr or cp.stdout).strip()}")
